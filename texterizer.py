@@ -1,9 +1,13 @@
+#!/usr/bin/env python
+
 # -*- coding: utf-8 -*-
 """
 Demonstrates a variety of uses for ROI. This class provides a user-adjustable
 region of interest marker. It is possible to customize the layout and 
 function of the scale/rotate handles in very flexible ways. 
 """
+
+
 
 import initExample ## Add path to library (just for examples; you do not need this)
 
@@ -19,80 +23,124 @@ from pyqtgraph.parametertree import Parameter, ParameterTree, ParameterItem, reg
 import pickle
 
 class ImProc:
+
     def __init__(self,cb):
+        self.cb = cb
+        self.saveName = ''
         self.sRed = MySlider(name='R',cb=cb)
         self.sGreen = MySlider(name='G',cb=cb)
         self.sBlue = MySlider(name='B',cb=cb)
-        self.sDS = MySlider(name='Downsample',min=1,max=10,val=1,cb=cb)
+        self.sDS = MySlider(name='Downsample',min=0,max=10,val=0,cb=cb)
         self.sUS = MySlider(name='Upsample',min=1,max=100,val=1,cb=cb)
-        self.sFont = MySlider(name='Font Size',min=1,max=40,val=1,cb=cb)
+        self.sFont = MySlider(name='Font Size',min=1,max=100,val=1,cb=cb)
+
+        self.cbThresh = QtGui.QCheckBox()
+        self.cbThresh.setText('Do Threshold')
+        self.cbThresh.setStyleSheet("QCheckBox { color: white }")
+        self.cbThresh.clicked.connect(cb)
+
+        self.cbRender = QtGui.QCheckBox()
+        self.cbRender.setText('Do Text Render')
+        self.cbRender.setStyleSheet("QCheckBox { color: white }")
+        self.cbRender.clicked.connect(cb)
+
+        self.btnSave = QtGui.QPushButton()
+        self.btnSave.setText("Save Images")
+        self.btnSave.setMaximumWidth(150)
+        self.btnSave.clicked.connect(self.cb_save_click)
+
+        self.saveDialog = QtGui.QFileDialog()
+        self.saveDialog.setModal(True)
+
+    def cb_save_click(self):
+        #fileName = QtGui.QFileDialog.getSaveFileName(parent=self, caption='Select ', dir='~', selectedFilter='*.*')
+        self.saveName = str(QtGui.QFileDialog.getSaveFileName())
+        self.cb()
 
     def populate_layout(self,layout):
+        layout.addWidget(self.cbThresh)
         layout.addWidget(self.sRed.widget)
         layout.addWidget(self.sGreen.widget)
         layout.addWidget(self.sBlue.widget)
         layout.addWidget(self.sDS.widget)
+
+        layout.addWidget(self.cbRender)
         layout.addWidget(self.sUS.widget)
         layout.addWidget(self.sFont.widget)
+        layout.addWidget(self.btnSave)
 
     def proc_image(self, im):
 
-        if self.sDS.get_value() > 0:
-            frac = 1.0/self.sDS.get_value()
-            rds = misc.imresize(im[:,:,0], frac)
-            gds = misc.imresize(im[:,:,1], frac)
-            bds = misc.imresize(im[:,:,2], frac)
-        else:
-            rds = im[:,:,0]
-            gds = im[:,:,1]
-            bds = im[:,:,2]
+        im_b = im.astype(np.uint8)
 
-        r = rds > self.sRed.get_value()
-        g = gds > self.sGreen.get_value()
-        b = bds > self.sBlue.get_value()
+        pimg = Image.fromarray(im_b)
+
+        dsfac = self.sDS.get_value()
+
+
+        if self.sDS.get_value() > 1:
+            new_size = []
+            new_size.append(pimg.size[0] / dsfac)
+            new_size.append(pimg.size[1] / dsfac)
+            pimg = pimg.resize(new_size)
+
+        data = np.asarray( pimg, dtype="uint8" )
+
+        rds = data[:,:,0]
+        gds = data[:,:,1]
+        bds = data[:,:,2]
+
+        if self.cbThresh.isChecked():
+            r = rds > self.sRed.get_value()
+            g = gds > self.sGreen.get_value()
+            b = bds > self.sBlue.get_value()
+        else:
+            r = rds
+            g = gds
+            b = bds
 
         us = self.sUS.get_value()
         sz = []
         sz.append(rds.shape[0] *  us)
         sz.append(rds.shape[1] *  us)
 
-
         rtxt = Image.new('RGBA', sz, (255,255,255,255))
         gtxt = Image.new('RGBA', sz, (255,255,255,255))
         btxt = Image.new('RGBA', sz, (255,255,255,255))
 
-        fnt = ImageFont.truetype('Arial.ttf', self.sFont.get_value())
-        # get a drawing context
-        d = ImageDraw.Draw(rtxt)
+        if self.cbRender.isChecked():
+            fnt = ImageFont.truetype('Arial.ttf', self.sFont.get_value())
+            # get a drawing context
+            rd = ImageDraw.Draw(rtxt)
+            gd = ImageDraw.Draw(gtxt)
+            bd = ImageDraw.Draw(btxt)
 
-        #self.IntelliDraw(d,'R',fnt,10)
-        #d.text((0,0), 'R', font=fnt, fill=(0,0,0,255))
-
-        rfud = r#np.transpose(r)
-        #rfud = np.rot90(np.flipud(r),3)
-
-        for i in range(rds.shape[0]):
-            for j in range(rds.shape[1]):
-                x = i*us
-                y = j*us
-                if rfud[i,j]:
-                    d.text((x,y), 'R', font=fnt, fill=(0,0,0,255))
-
-
-        rtxt.save('out.jpg')
+            nrows = rds.shape[1]
+            for i in range(rds.shape[0]):
+                #for j in range(rds.shape[1]-1,-1,-1):
+                for j in range(rds.shape[1]):
+                    x = i*us
+                    y = j*us
+                    if r[i,nrows-1-j]:
+                        rd.text((x,y), 'R', font=fnt, fill=(0,0,0,255))
+                    if g[i,nrows-1-j]:
+                        gd.text((x,y), 'G', font=fnt, fill=(0,0,0,255))
+                    if b[i,nrows-1-j]:
+                        bd.text((x,y), 'B', font=fnt, fill=(0,0,0,255))
 
 
+        #rtxt.save('out.jpg')
+
+        if self.saveName != '':
+            print 'gonna save ' + self.saveName
+            rtxt.save(self.saveName + '_r.tiff')
+            gtxt.save(self.saveName + '_g.tiff')
+            btxt.save(self.saveName + '_b.tiff')
+
+        self.saveName = ''
 
         return r,g,b,np.asarray(rtxt),np.asarray(gtxt),np.asarray(btxt)
 
-    def block_mean(self, ar, fact):
-        assert isinstance(fact, int), type(fact)
-        sx, sy = ar.shape
-        X, Y = np.ogrid[0:sx, 0:sy]
-        regions = sy/fact * (X/fact) + Y/fact
-        res = ndimage.mean(ar, labels=regions, index=np.arange(regions.max() + 1))
-        res.shape = (sx/fact, sy/fact)
-        return res
 
 
 class MySlider:
@@ -140,19 +188,26 @@ def update_images():
     imReg = roi.getArrayRegion(l, img)
     r,g,b,rtxt,gtxt,btxt = set.proc_image(imReg)
 
-    imgRed.setImage(r, levels=(0, 1))
-    imgGreen.setImage(g, levels=(0, 1))
-    imgBlue.setImage(b, levels=(0, 1))
+
+    if set.cbThresh.isChecked():
+        lvls=(0,1)
+    else:
+        lvls = (0,255)
+
+    imgRed.setImage(r, levels=lvls)
+    imgGreen.setImage(g, levels=lvls)
+    imgBlue.setImage(b, levels=lvls)
 
 
-    imgRedText.setImage(rtxt)
-    imgGreenText.setImage(gtxt)
-    imgBlueText.setImage(btxt)
+    imgRedText.setImage(np.rot90(rtxt,3), levels=(0,255))
+    imgGreenText.setImage(np.rot90(gtxt,3), levels=(0,255))
+    imgBlueText.setImage(np.rot90(btxt,3), levels=(0,255))
 
 
     vRed.autoRange()
     vGreen.autoRange()
     vBlue.autoRange()
+
     vRedText.autoRange()
     vGreenText.autoRange()
     vBlueText.autoRange()
@@ -164,12 +219,7 @@ def update(roi):
 
 set = ImProc(cb=update_images)
 
-## Create two ParameterTree widgets, both accessing the same data
-# t = ParameterTree()
-# t.setParameters(p, showTop=False)
-# t.setWindowTitle('pyqtgraph example: Parameter Tree')
-
-l = misc.imread('monkey2.jpg')
+l = misc.imread('rgb2.jpg')
 l = np.rot90(l, 3)
 
 maxval = l.max()
@@ -183,8 +233,6 @@ layout.addWidget(w1,0,1,1,1)
 left_layout = QtGui.QVBoxLayout()
 left_side = QtGui.QWidget()
 left_side.setLayout(left_layout)
-
-
 
 set.populate_layout(left_layout)
 
