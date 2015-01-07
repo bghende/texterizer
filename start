@@ -1,0 +1,2 @@
+#!/bin/sh
+python texterizer.py

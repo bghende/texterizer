@@ -22,17 +22,19 @@ import pyqtgraph.parametertree.parameterTypes as pTypes
 from pyqtgraph.parametertree import Parameter, ParameterTree, ParameterItem, registerParameterType
 import pickle
 
+roi = []
+
 class ImProc:
 
     def __init__(self,cb):
         self.cb = cb
         self.saveName = ''
-        self.sRed = MySlider(name='R',cb=cb)
-        self.sGreen = MySlider(name='G',cb=cb)
-        self.sBlue = MySlider(name='B',cb=cb)
+        self.sRed = MySlider(name='R',cb=cb,val=128)
+        self.sGreen = MySlider(name='G',cb=cb,val=128)
+        self.sBlue = MySlider(name='B',cb=cb,val=128)
         self.sDS = MySlider(name='Downsample',min=0,max=10,val=0,cb=cb)
         self.sUS = MySlider(name='Upsample',min=1,max=100,val=1,cb=cb)
-        self.sFont = MySlider(name='Font Size',min=1,max=100,val=1,cb=cb)
+        self.sFont = MySlider(name='Font Size',min=1,max=100,val=10,cb=cb)
 
         self.cbThresh = QtGui.QCheckBox()
         self.cbThresh.setText('Do Threshold')
@@ -150,13 +152,18 @@ class MySlider:
         self.lbl.setText(name)
         self.lbl.setStyleSheet("QLabel { color : white; }")
 
-        self.slider = QtGui.QSlider(orient)
-        self.slider.setRange(min,max)
-        self.slider.setValue(val)
-
         self.val_lbl = QtGui.QLabel()
         self.val_lbl.setText('0')
         self.val_lbl.setStyleSheet("QLabel { color : white; }")
+
+        self.slider = QtGui.QSlider(orient)
+        self.slider.valueChanged[int].connect(self.val_lbl.setNum)
+        self.slider.valueChanged.connect(cb)
+
+        self.slider.setRange(min,max)
+        self.slider.setValue(val)
+
+
 
         self.layout = QtGui.QHBoxLayout()
         self.layout.addWidget(self.lbl)
@@ -167,8 +174,7 @@ class MySlider:
         self.widget.setLayout(self.layout)
 
 
-        self.slider.valueChanged[int].connect(self.val_lbl.setNum)
-        self.slider.valueChanged.connect(cb)
+
 
     def get_value(self):
         return self.slider.value()
@@ -219,7 +225,7 @@ def update(roi):
 
 set = ImProc(cb=update_images)
 
-l = misc.imread('rgb2.jpg')
+l = misc.imread('monkey2.jpg')
 l = np.rot90(l, 3)
 
 maxval = l.max()
