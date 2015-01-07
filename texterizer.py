@@ -18,6 +18,10 @@ from scipy import ndimage
 from scipy import misc
 from PIL import Image, ImageDraw, ImageFont
 
+imgFilename = 'monkey2.jpg'
+fontFilename = 'Verdana.ttf'
+
+
 import pyqtgraph.parametertree.parameterTypes as pTypes
 from pyqtgraph.parametertree import Parameter, ParameterTree, ParameterItem, registerParameterType
 import pickle
@@ -111,7 +115,7 @@ class ImProc:
         btxt = Image.new('RGBA', sz, (255,255,255,255))
 
         if self.cbRender.isChecked():
-            fnt = ImageFont.truetype('Arial.ttf', self.sFont.get_value())
+            fnt = ImageFont.truetype(fontFilename, self.sFont.get_value())
             # get a drawing context
             rd = ImageDraw.Draw(rtxt)
             gd = ImageDraw.Draw(gtxt)
@@ -225,7 +229,7 @@ def update(roi):
 
 set = ImProc(cb=update_images)
 
-l = misc.imread('monkey2.jpg')
+l = misc.imread(imgFilename)
 l = np.rot90(l, 3)
 
 maxval = l.max()
