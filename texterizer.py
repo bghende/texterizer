@@ -17,16 +17,13 @@ import numpy as np
 from scipy import ndimage
 from scipy import misc
 from PIL import Image, ImageDraw, ImageFont
-
-imgFilename = 'monkey2.jpg'
-fontFilename = 'Verdana.ttf'
+import sys
 
 
 import pyqtgraph.parametertree.parameterTypes as pTypes
 from pyqtgraph.parametertree import Parameter, ParameterTree, ParameterItem, registerParameterType
 import pickle
 
-roi = []
 
 class ImProc:
 
@@ -187,140 +184,159 @@ class MySlider:
         self.slider.setValue(value)
 
 
-## create GUI
-app = QtGui.QApplication([])
+def run(imgName, fontName):
+    roi = []
+
+    fontFilename = fontName
+    imgFilename = imgName
+
+    ## create GUI
+    app = QtGui.QApplication([])
 
 
-def update_images():
-    if roi == []:
-        return;
+    def update_images():
+        if roi == []:
+            return;
 
-    imReg = roi.getArrayRegion(l, img)
-    r,g,b,rtxt,gtxt,btxt = set.proc_image(imReg)
-
-
-    if set.cbThresh.isChecked():
-        lvls=(0,1)
-    else:
-        lvls = (0,255)
-
-    imgRed.setImage(r, levels=lvls)
-    imgGreen.setImage(g, levels=lvls)
-    imgBlue.setImage(b, levels=lvls)
+        imReg = roi.getArrayRegion(l, img)
+        r,g,b,rtxt,gtxt,btxt = set.proc_image(imReg)
 
 
-    imgRedText.setImage(np.rot90(rtxt,3), levels=(0,255))
-    imgGreenText.setImage(np.rot90(gtxt,3), levels=(0,255))
-    imgBlueText.setImage(np.rot90(btxt,3), levels=(0,255))
+        if set.cbThresh.isChecked():
+            lvls=(0,1)
+        else:
+            lvls = (0,255)
+
+        imgRed.setImage(r, levels=lvls)
+        imgGreen.setImage(g, levels=lvls)
+        imgBlue.setImage(b, levels=lvls)
 
 
+        imgRedText.setImage(np.rot90(rtxt,3), levels=(0,255))
+        imgGreenText.setImage(np.rot90(gtxt,3), levels=(0,255))
+        imgBlueText.setImage(np.rot90(btxt,3), levels=(0,255))
+
+
+        vRed.autoRange()
+        vGreen.autoRange()
+        vBlue.autoRange()
+
+        vRedText.autoRange()
+        vGreenText.autoRange()
+        vBlueText.autoRange()
+
+    def update(roi):
+        roi_ = roi
+        #imReg = roi.getArrayRegion(l, img)
+        update_images()
+
+    set = ImProc(cb=update_images)
+
+    l = misc.imread(imgFilename)
+    l = np.rot90(l, 3)
+
+    maxval = l.max()
+    w = pg.GraphicsWindow(size=(1600,800), border=True)
+    layout = QtGui.QGridLayout()
+    w.setLayout(layout)
+
+    w1 = pg.GraphicsLayoutWidget()
+    layout.addWidget(w1,0,1,1,1)
+
+    left_layout = QtGui.QVBoxLayout()
+    left_side = QtGui.QWidget()
+    left_side.setLayout(left_layout)
+
+    set.populate_layout(left_layout)
+
+    left_layout.addStretch(0)
+
+    splitter = QtGui.QSplitter(1)
+
+    #splitter.addWidget(t)
+    splitter.addWidget(left_side)
+    splitter.addWidget(w1)
+
+    #w.setCentralWidget(splitter)
+    layout.addWidget(splitter,0,0,1,1)
+
+    w.setWindowTitle('Texterizer')
+
+    #label1 = w1.addLabel(text, row=0, col=0)
+    vImage = w1.addViewBox(row=0, col=0, rowspan=3, lockAspect=True)
+    img = pg.ImageItem(l)
+    vImage.addItem(img)
+    vImage.disableAutoRange('xy')
+    vImage.autoRange()
+
+    vRed = w1.addViewBox(row=0, col=1, lockAspect=True)
+    imgRed = pg.ImageItem()
+    vRed.addItem(imgRed)
+    vRed.disableAutoRange('xy')
     vRed.autoRange()
+
+    vGreen = w1.addViewBox(row=1, col=1, lockAspect=True)
+    imgGreen = pg.ImageItem()
+    vGreen.addItem(imgGreen)
+    vGreen.disableAutoRange('xy')
     vGreen.autoRange()
+
+    vBlue = w1.addViewBox(row=2, col=1, lockAspect=True)
+    imgBlue = pg.ImageItem()
+    vBlue.addItem(imgBlue)
+    vBlue.disableAutoRange('xy')
     vBlue.autoRange()
 
+
+
+    vRedText = w1.addViewBox(row=0, col=2, lockAspect=True)
+    imgRedText = pg.ImageItem()
+    vRedText.addItem(imgRedText)
+    vRedText.disableAutoRange('xy')
     vRedText.autoRange()
+
+    vGreenText = w1.addViewBox(row=1, col=2, lockAspect=True)
+    imgGreenText = pg.ImageItem()
+    vGreenText.addItem(imgGreenText)
+    vGreenText.disableAutoRange('xy')
     vGreenText.autoRange()
+
+    vBlueText = w1.addViewBox(row=2, col=2, lockAspect=True)
+    imgBlueText = pg.ImageItem()
+    vBlueText.addItem(imgBlueText)
+    vBlueText.disableAutoRange('xy')
     vBlueText.autoRange()
 
-def update(roi):
-    roi_ = roi
-    #imReg = roi.getArrayRegion(l, img)
-    update_images()
+    rois = []
+    rois.append(pg.RectROI([l.shape[0]/2-50, l.shape[1]/2-50], [100, 100], pen=(0,9)))
+    rois[-1].addRotateHandle([1,0], [0.5, 0.5])
 
-set = ImProc(cb=update_images)
-
-l = misc.imread(imgFilename)
-l = np.rot90(l, 3)
-
-maxval = l.max()
-w = pg.GraphicsWindow(size=(1600,800), border=True)
-layout = QtGui.QGridLayout()
-w.setLayout(layout)
-
-w1 = pg.GraphicsLayoutWidget()
-layout.addWidget(w1,0,1,1,1)
-
-left_layout = QtGui.QVBoxLayout()
-left_side = QtGui.QWidget()
-left_side.setLayout(left_layout)
-
-set.populate_layout(left_layout)
-
-left_layout.addStretch(0)
-
-splitter = QtGui.QSplitter(1)
-
-#splitter.addWidget(t)
-splitter.addWidget(left_side)
-splitter.addWidget(w1)
-
-#w.setCentralWidget(splitter)
-layout.addWidget(splitter,0,0,1,1)
-
-w.setWindowTitle('Texterizer')
-
-#label1 = w1.addLabel(text, row=0, col=0)
-vImage = w1.addViewBox(row=0, col=0, rowspan=3, lockAspect=True)
-img = pg.ImageItem(l)
-vImage.addItem(img)
-vImage.disableAutoRange('xy')
-vImage.autoRange()
-
-vRed = w1.addViewBox(row=0, col=1, lockAspect=True)
-imgRed = pg.ImageItem()
-vRed.addItem(imgRed)
-vRed.disableAutoRange('xy')
-vRed.autoRange()
-
-vGreen = w1.addViewBox(row=1, col=1, lockAspect=True)
-imgGreen = pg.ImageItem()
-vGreen.addItem(imgGreen)
-vGreen.disableAutoRange('xy')
-vGreen.autoRange()
-
-vBlue = w1.addViewBox(row=2, col=1, lockAspect=True)
-imgBlue = pg.ImageItem()
-vBlue.addItem(imgBlue)
-vBlue.disableAutoRange('xy')
-vBlue.autoRange()
+    roi_ = []
 
 
 
-vRedText = w1.addViewBox(row=0, col=2, lockAspect=True)
-imgRedText = pg.ImageItem()
-vRedText.addItem(imgRedText)
-vRedText.disableAutoRange('xy')
-vRedText.autoRange()
 
-vGreenText = w1.addViewBox(row=1, col=2, lockAspect=True)
-imgGreenText = pg.ImageItem()
-vGreenText.addItem(imgGreenText)
-vGreenText.disableAutoRange('xy')
-vGreenText.autoRange()
+    for roi in rois:
+        roi.sigRegionChanged.connect(update)
+        vImage.addItem(roi)
 
-vBlueText = w1.addViewBox(row=2, col=2, lockAspect=True)
-imgBlueText = pg.ImageItem()
-vBlueText.addItem(imgBlueText)
-vBlueText.disableAutoRange('xy')
-vBlueText.autoRange()
+    update(rois[-1])
 
-rois = []
-rois.append(pg.RectROI([l.shape[0]/2-50, l.shape[1]/2-50], [100, 100], pen=(0,9)))
-rois[-1].addRotateHandle([1,0], [0.5, 0.5])
+    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+        QtGui.QApplication.instance().exec_()
 
-roi_ = []
-
-
-
-    
-for roi in rois:
-    roi.sigRegionChanged.connect(update)
-    vImage.addItem(roi)
-
-update(rois[-1])
 
 ## Start Qt event loop unless running in interactive mode or using pyside.
 if __name__ == '__main__':
-    import sys
-    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-        QtGui.QApplication.instance().exec_()
+    if len(sys.argv) > 1:
+        imgFilename = sys.argv[1]
+    else:
+        imgFilename = 'monkey2.jpg'
+
+    if len(sys.argv) > 2:
+        fontFilename = sys.argv[2]
+    else:
+        fontFilename = 'Verdana.ttf'
+
+
+    run(imgFilename, fontFilename)
